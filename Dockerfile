@@ -19,7 +19,7 @@ RUN pip install --upgrade pip
 RUN pip install pipenv
 
 # Generate requirements.txt and install dependencies from there
-RUN pipenv requirements > requirements.txt
+#RUN pip freeze > requirements.txt
 RUN pip install -r requirements.txt
 
 CMD [ "python", "flathunt.py", "-c", "/config.yaml" ]
