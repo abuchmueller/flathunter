@@ -22,3 +22,6 @@ __pycache__/
 
 # Don't upload the database
 processed_ids.db
+
+# Don't upload chromedriver
+chromedriver/

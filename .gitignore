@@ -99,3 +99,9 @@ config.yaml
 
 # Vscode
 .vscode
+
+# Chromedriver
+chromedriver/
+
+# Pip requirements - should not be committed
+requirements.txt
