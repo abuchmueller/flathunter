@@ -50,7 +50,7 @@ filters:
             config_file.flush()
             config_file.close()
             created = True
-        config = Config()
+        config = Config("config.yaml")
         self.assertTrue(len(config.get('urls')) > 0, "Expected URLs in config file")
         if created:
             os.remove("config.yaml")

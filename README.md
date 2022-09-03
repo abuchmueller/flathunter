@@ -11,7 +11,7 @@ A bot to help people with their rental real-estate search. 🏠🤖
 
 Flathunter is a Python application which periodically [scrapes](https://en.wikipedia.org/wiki/Web_scraping) property listings sites, configured by the user, to find new rental real-estate listings, reporting them over messaging services.
 
-Currently available messaging services are [Telegram](https://telegram.org/) and [Mattermost](https://mattermost.com/).
+Currently available messaging services are [Telegram](https://telegram.org/), [Mattermost](https://mattermost.com/) and [Apprise](https://github.com/caronc/apprise).
 
 ## Table of Contents
 - [Background](#background)
@@ -161,15 +161,35 @@ First build the image inside the project's root directory:
 $ docker build -t flathunter .
 ```
 
-**When running a container using the image, a config file needs to be mounted on the container at ```/config.yaml```.** The example below provides the file ```config.yaml``` off the current working directory:
+**When running a container using the image, a config file needs to be mounted on the container at ```/config.yaml``` or configuration has to be supplied using environment variables.** The example below provides the file ```config.yaml``` off the current working directory:
 
 ```sh
 $ docker run --mount type=bind,source=$PWD/config.yaml,target=/config.yaml flathunter
 ```
 
+#### Environment Configuration
+
+To make deployment with docker easier, most of the important configuration options can be set with environment variables. The current list of recognised variables includes:
+
+ - FLATHUNTER_TARGET_URLS - a semicolon-separated list of URLs to crawl
+ - FLATHUNTER_DATABASE_LOCATION - the location on disk of the sqlite database if required
+ - FLATHUNTER_GOOGLE_CLOUD_PROJECT_ID - the Google Cloud Project ID, for Google Cloud deployments
+ - FLATHUNTER_VERBOSE_LOG - set to any value to enable verbose logging
+ - FLATHUNTER_LOOP_PERIOD_SECONDS - a number in seconds for the crawling interval
+ - FLATHUNTER_MESSAGE_FORMAT - a format string for the notification messages, where `#CR#` will be replaced by newline
+ - FLATHUNTER_NOTIFIERS - a comma-separated list of notifiers to enable (e.g. `telegram,mattermost`)
+ - FLATHUNTER_TELEGRAM_BOT_TOKEN - the token for the Telegram notifier
+ - FLATHUNTER_TELEGRAM_RECEIVER_IDS - a comma-separated list of receiver IDs for Telegram notifications
+ - FLATHUNTER_MATTERMOST_WEBHOOK_URL - the webhook URL for Mattermost notifications
+ - FLATHUNTER_WEBSITE_SESSION_KEY - the secret session key used to secure sessions for the flathunter website deployment
+ - FLATHUNTER_WEBSITE_DOMAIN - the public domain of the flathunter website deployment
+ - FLATHUNTER_2CAPTCHA_KEY - the API key for 2captcha
+ - FLATHUNTER_IMAGETYPERZ_TOKEN - the API token for ImageTyperz
+ - FLATHUNTER_HEADLESS_BROWSER - set to any value to configure Google Chrome to be launched in headless mode (necessary for Docker installations)
+
 ### Google Cloud Deployment
 
-You can run `Flathunter` on Google's App Engine, in the free tier, at no cost. To get started, first install the [Google Cloud SDK](https://cloud.google.com/sdk/docs) on your machine, and run:
+You can run `Flathunter` on Google's App Engine, in the free tier, at no cost if you don't need captcha solving. If you need to solve captchas, you can use Google Cloud Run as described later. To get started, first install the [Google Cloud SDK](https://cloud.google.com/sdk/docs) on your machine, and run:
 
 ```
 $ gcloud init
@@ -181,13 +201,15 @@ to setup the SDK. You will need to create a new cloud project (or connect to an 
 $ gcloud config set project flathunters
 ```
 
-You will need to provide the project ID to the configuration file `config.yaml` as value to the key `google_cloud_project_id`.
+You will need to provide the project ID to the configuration file `config.yaml` as value to the key `google_cloud_project_id` or in the `FLATHUNTER_GOOGLE_CLOUD_PROJECT_ID` environment variable.
 
 Google Cloud [doesn't currently support Pipfiles](https://stackoverflow.com/questions/58546089/does-google-app-engine-flex-support-pipfile). To work around this restriction, the `Pipfile` and `Pipfile.lock` have been added to `.gcloudignore`, and a `requirements.txt` file has been generated using `pip freeze`. 
 
 If the Pipfile has been updated, you will need to remove the line `pkg-resources==0.0.0` from `requirements.txt` for a successful deploy.
 
-To deploy the app, run:
+#### Google App Engine Deployment
+
+To deploy the app to Google App Engine, run:
 
 ```
 $ gcloud app deploy
@@ -200,6 +222,36 @@ Instead of running with a timer, the web interface depends on periodic calls to 
 ```
 $ gcloud app deploy cron.yaml
 ```
+
+#### Google Cloud Run Deployment
+
+If you need captcha support (for example to scrape Immoscout), you will need to deploy using [Google Cloud Run](https://cloud.google.com/run/), so that you can embed the Chrome browser and Selenium Webdriver in the docker image. A seperate `Dockerfile.gcloud.job` exists for this purpose.
+
+First, ensure that `requirements.txt` has been created (per [Google Cloud Deployment](#google-cloud-deployment)), then either run:
+
+```
+docker build -t flathunter-job -f Dockerfile.gcloud.job .
+```
+
+to build the docker image locally, or edit the `cloudbuild.yaml` file to point to the container registry for your own Google Cloud Project, and run:
+
+```
+gcloud builds submit --region=europe-west1
+```
+
+to have [Google Cloud Build](https://cloud.google.com/build) build and tag the image for you.
+
+You will need to create a new [Google Cloud Run Job](https://console.cloud.google.com/run/jobs) to execute the crawl/notify. The job should be configured with 1GB of memory and 1 CPU, and the environment variables to should be set appropriately.
+
+You can trigger the job using [Google Cloud Scheduler](https://console.cloud.google.com/cloudscheduler), using an HTTP POST to:
+
+```
+https://[REGION]-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/[PROJECT_ID]/jobs/[JOB_NAME]:run
+```
+
+For more information checkout [the Cloud Scheduler documentation](https://cloud.google.com/run/docs/execute/jobs-on-schedule).
+
+Because the image uses Firestore to read details of user notification preferences and store crawled exposes, the job can run without any additional configuration. If you are hosting the webinterface somewhere on Google Cloud (either App Engine or Google Cloud Run), the job here will find the appropriate Firebase database.
 
 ## Usage
 

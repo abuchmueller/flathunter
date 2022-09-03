@@ -14,6 +14,9 @@ from flathunter.config import Config
 from dummy_crawler import DummyCrawler
 
 DUMMY_CONFIG = """
+notifiers:
+  - telegram
+
 telegram:
   bot_token: 1234xxx.12345
 
@@ -107,7 +110,7 @@ def test_hunt_via_post_with_filters(hunt_client, **kwargs):
 def test_render_index_after_login(hunt_client):
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=c691a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25952')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' in session
     rv = hunt_client.get('/')
     assert rv.status_code == 200
@@ -118,7 +121,7 @@ def test_do_not_send_messages_if_notifications_disabled(hunt_client, **kwargs):
     app.config['HUNTER'].set_filters_for_user(1234, {})
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=c691a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25952')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' in session
     rv = hunt_client.post('/toggle_notifications')
     assert rv.status_code == 201
@@ -133,7 +136,7 @@ def test_toggle_notification_status(hunt_client):
     app.config['HUNTER'].set_filters_for_user(1234, {})
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=c691a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25952')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' in session
     rv = hunt_client.post('/toggle_notifications')
     assert rv.status_code == 201
@@ -145,7 +148,7 @@ def test_toggle_notification_status(hunt_client):
 def test_update_filters(hunt_client):
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=c691a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25952')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' in session
     rv = hunt_client.post('/filter', data = { 'b': '3' })
     assert app.config['HUNTER'].get_filters_for_user(1234) == { 'b': 3.0 }
@@ -158,7 +161,7 @@ def test_update_filters_not_logged_in(hunt_client):
 def test_index_logged_in_with_filters(hunt_client):
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=c691a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25952')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' in session
     hunt_client.post('/filter', data = { 'max_size': '35' })
     rv = hunt_client.get('/')
@@ -167,7 +170,7 @@ def test_index_logged_in_with_filters(hunt_client):
 def test_login_with_telegram(hunt_client):
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=c691a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25952')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' in session
     assert session['user']['first_name'] == 'Jason'
     assert json.dumps(session['user']) == '{"id": "1234", "first_name": "Jason", "last_name": "Bourne", "username": "mattdamon", "photo_url": "https://i.example.com/profile.jpg", "auth_date": "123455678"}'
@@ -175,25 +178,25 @@ def test_login_with_telegram(hunt_client):
 def test_login_with_invalid_url(hunt_client):
     rv = hunt_client.get('/login_with_telegram?username=mattdamon&id=1234&first_name=Jason&last_name=Bourne&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' not in session
 
 def test_login_with_missing_params(hunt_client):
     rv = hunt_client.get('/login_with_telegram?ad=1234&hash=51d737e1a3ba0821359955a36d3671f2957b5a8f1f32f9a133ce95836c44a9a9')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' not in session
 
 def test_login_with_invalid_hash(hunt_client):
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=0091a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25900')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' not in session
 
 def test_logout(hunt_client):
     rv = hunt_client.get('/login_with_telegram?id=1234&first_name=Jason&last_name=Bourne&username=mattdamon&photo_url=https%3A%2F%2Fi.example.com%2Fprofile.jpg&auth_date=123455678&hash=c691a55de4e28b341ccd0b793d4ca17f09f6c87b28f8a893621df81475c25952')
     assert rv.status_code == 302
-    assert rv.headers['location'] == 'http://localhost/'
+    assert rv.headers['location'] == '/'
     assert 'user' in session
     rv = hunt_client.get('/logout')
     assert 'user' not in session

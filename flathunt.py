@@ -8,12 +8,11 @@ import argparse
 import os
 import logging
 import time
-from pprint import pformat
 
-from flathunter.logging import logger, wdm_logger
+from flathunter.logging import logger, wdm_logger, configure_logging
 from flathunter.idmaintainer import IdMaintainer
 from flathunter.hunter import Hunter
-from flathunter.config import Config
+from flathunter.config import Config, Env
 from flathunter.heartbeat import Heartbeat
 
 __author__ = "Jan Harrie"
@@ -31,10 +30,10 @@ def launch_flat_hunt(config, heartbeat=None):
     hunter.hunt_flats()
     counter = 0
 
-    while config.get('loop', {}).get('active', False):
+    while config.loop_is_active():
         counter += 1
         counter = heartbeat.send_heartbeat(counter)
-        time.sleep(config.get('loop', {}).get('sleeping_time', 60 * 10))
+        time.sleep(config.loop_period_seconds())
         hunter.hunt_flats()
 
 
@@ -45,7 +44,10 @@ def main():
                      " and sends results to Telegram User"),
         epilog="Designed by Nody"
     )
-    default_config_path = f"{os.path.dirname(os.path.abspath(__file__))}/config.yaml"
+    if Env.FLATHUNTER_TARGET_URLS is not None:
+        default_config_path = None
+    else:
+        default_config_path = f"{os.path.dirname(os.path.abspath(__file__))}/config.yaml"
     parser.add_argument('--config', '-c',
                         type=argparse.FileType('r', encoding='UTF-8'),
                         default=default_config_path,
@@ -62,34 +64,37 @@ def main():
 
     # load config
     config_handle = args.config
-    config = Config(config_handle.name)
+    if config_handle is not None:
+        config = Config(config_handle.name)
+    else:
+        config = Config()
 
-    # adjust log level, if required
-    if config.get('verbose'):
-        logger.setLevel(logging.DEBUG)
-        # Allow logging of "webdriver-manager" module on verbose mode
-        wdm_logger.setLevel(logging.INFO)
-
-    logger.debug("Settings from config: %s", pformat(config))
+    # setup logging
+    configure_logging(config)
 
     # initialize search plugins for config
     config.init_searchers()
 
     # check config
-    notifiers = config.get('notifiers', [])
+    notifiers = config.notifiers()
     if 'mattermost' in notifiers \
-            and not config.get('mattermost', {}).get('webhook_url'):
+            and not config.mattermost_webhook_url():
         logger.error("No Mattermost webhook configured. Starting like this would be pointless...")
         return
     if 'telegram' in notifiers:
-        if not config.get('telegram', {}).get('bot_token'):
+        if not config.telegram_bot_token():
             logger.error(
                 "No Telegram bot token configured. Starting like this would be pointless..."
             )
             return
-        if not config.get('telegram', {}).get('receiver_ids'):
+        if len(config.telegram_receiver_ids()) == 0:
             logger.warning("No Telegram receivers configured - nobody will get notifications.")
-    if not config.get('urls'):
+    if 'apprise' in notifiers \
+            and not config.get('apprise', {}):
+        logger.error("No apprise url configured. Starting like this would be pointless...")
+        return
+
+    if len(config.target_urls()) == 0:
         logger.error("No URLs configured. Starting like this would be pointless...")
         return
 

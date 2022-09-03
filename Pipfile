@@ -26,6 +26,9 @@ pytz = "*"
 beautifulsoup4 = "*"
 pylint-runner = "*"
 webdriver-manager = "*"
+apprise = "*"
+python-dotenv = "*"
+undetected-chromedriver = "*"
 
 [dev-packages]
 

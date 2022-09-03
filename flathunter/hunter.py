@@ -30,9 +30,9 @@ class Hunter:
                 logger.info("Error while scraping url %s:\n%s", url, traceback.format_exc())
                 return []
 
-        return chain(*[try_crawl(searcher,url, max_pages)
+        return chain(*[try_crawl(searcher, url, max_pages)
                        for searcher in self.config.searchers()
-                       for url in self.config.get('urls', [])])
+                       for url in self.config.target_urls()])
 
     def hunt_flats(self, max_pages=None):
         """Crawl, process and filter exposes"""

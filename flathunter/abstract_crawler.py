@@ -1,24 +1,23 @@
 """Interface for webcrawlers. Crawler implementations should subclass this"""
 import re
 from time import sleep
+
 import backoff
 import requests
 import selenium
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium import webdriver
+import undetected_chromedriver.v2 as uc
 from bs4 import BeautifulSoup
-from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import HardwareType, Popularity
-from webdriver_manager.chrome import ChromeDriverManager
+from random_user_agent.user_agent import UserAgent
+from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
 from flathunter import proxies
-from flathunter.logging import logger
 from flathunter.captcha.captcha_solver import CaptchaUnsolvableError
+from flathunter.logging import logger
+
 
 class Crawler:
     """Defines the Crawler interface"""
@@ -52,18 +51,16 @@ class Crawler:
     def configure_driver(self, driver_arguments):
         """Configure Chrome WebDriver"""
         logger.info('Initializing Chrome WebDriver for crawler "%s"...', self.get_name())
-        chrome_options = Options()
+        chrome_options = uc.ChromeOptions()
         if driver_arguments is not None:
             for driver_argument in driver_arguments:
                 chrome_options.add_argument(driver_argument)
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=chrome_options
-        )
-        driver.execute_cdp_cmd('Network.setBlockedURLs', {
-          "urls": ["https://api.geetest.com/get.*"]
-        })
+
+        driver = uc.Chrome(options=chrome_options)
+
+        driver.execute_cdp_cmd('Network.setBlockedURLs', {"urls": ["https://api.geetest.com/get.*"]})
         driver.execute_cdp_cmd('Network.enable', {})
+
         return driver
 
     def rotate_user_agent(self):
@@ -75,11 +72,15 @@ class Crawler:
         """Applies a page number to a formatted search URL and fetches the exposes at that page"""
         return self.get_soup_from_url(search_url)
 
+    @backoff.on_exception(wait_gen=backoff.constant,
+                          exception=selenium.common.exceptions.TimeoutException,
+                          max_tries=3)
     def get_soup_from_url(self, url, driver=None, checkbox=None, afterlogin_string=None):
         """Creates a Soup object from the HTML at the provided URL"""
 
         self.rotate_user_agent()
         resp = requests.get(url, headers=self.HEADERS)
+
         if resp.status_code not in (200, 405):
             logger.error("Got response (%i): %s", resp.status_code, resp.content)
         if self.config.use_proxy():
@@ -107,10 +108,10 @@ class Crawler:
                 try:
                     # Very low proxy read timeout, or it will get stuck on slow proxies
                     resp = requests.get(
-                      url,
-                      headers=self.HEADERS,
-                      proxies={"http": proxy, "https": proxy},
-                      timeout=(20, 0.1)
+                        url,
+                        headers=self.HEADERS,
+                        proxies={"http": proxy, "https": proxy},
+                        timeout=(20, 0.1)
                     )
 
                     if resp.status_code != 200:
@@ -123,7 +124,7 @@ class Crawler:
                     logger.error("Connection failed for proxy %s. Trying new proxy...", proxy)
                 except requests.exceptions.Timeout:
                     logger.error(
-                      "Connection timed out for proxy %s. Trying new proxy...", proxy
+                        "Connection timed out for proxy %s. Trying new proxy...", proxy
                     )
                 except requests.exceptions.RequestException:
                     logger.error("Some error occurred. Trying new proxy...")
@@ -198,7 +199,6 @@ class Crawler:
             driver.refresh()
             raise
 
-
     @backoff.on_exception(wait_gen=backoff.constant,
                           exception=CaptchaUnsolvableError,
                           max_tries=3)
@@ -254,7 +254,7 @@ class Crawler:
             xpath_string = f"//*[contains(text(), '{afterlogin_string}')]"
             try:
                 WebDriverWait(driver, 120) \
-                  .until(EC.visibility_of_element_located((By.XPATH, xpath_string)))
+                    .until(EC.visibility_of_element_located((By.XPATH, xpath_string)))
             except selenium.common.exceptions.TimeoutException:
                 print("Selenium.Timeoutexception")
 

@@ -1,6 +1,8 @@
 """Provides logger"""
 import logging
 import os
+from pprint import pformat
+
 
 class LoggerHandler(logging.StreamHandler):
     """Formats logs and alters WebDriverManager's logs properties"""
@@ -25,10 +27,11 @@ class LoggerHandler(logging.StreamHandler):
         # Log record came from webdriver-manager logger
         if record.name == "WDM":
             # Filename to display in log
-            record.filename="<WebDriverManager>"
+            record.filename = "<WebDriverManager>"
             # Always display loglevel as DEBUG
-            record.levelname="DEBUG"
+            record.levelname = "DEBUG"
         super().emit(record)
+
 
 def setup_wdm_logger(wdm_new_logger_handler):
     """Setup "webdriver-manager" module's logger"""
@@ -40,6 +43,7 @@ def setup_wdm_logger(wdm_new_logger_handler):
     wdm_log.addHandler(wdm_new_logger_handler)
     return wdm_log
 
+
 # Setup Flathunter logger
 logger_handler = LoggerHandler()
 logging.basicConfig(level=logging.INFO, handlers=[logger_handler])
@@ -50,3 +54,10 @@ wdm_logger = setup_wdm_logger(logger_handler)
 
 # Setup "requests" module's logger
 logging.getLogger("requests").setLevel(logging.WARNING)
+
+def configure_logging(config):
+    if config.verbose_logging():
+        logger.setLevel(logging.DEBUG)
+        # Allow logging of "webdriver-manager" module on verbose mode
+        wdm_logger.setLevel(logging.INFO)
+    logger.debug("Settings from config: %s", pformat(config))

@@ -52,11 +52,16 @@ class CrawlWgGesucht(Crawler):
                 logger.warning("No size found - skipping")
                 continue
 
+            if len(dates) == 2:
+                title = f"{title} vom {dates[0]} bis {dates[1]}"
+            else:
+                title = f"{title} ab dem {dates[0]}"
+
             details = {
                 'id': int(url.split('.')[-2]),
                 'image': image,
                 'url': url,
-                'title': f"{title} ab dem {dates[0]}",
+                'title': title,
                 'price': price,
                 'size': size[0],
                 'rooms': rooms,

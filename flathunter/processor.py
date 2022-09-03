@@ -6,6 +6,7 @@ from flathunter.default_processors import Filter
 from flathunter.default_processors import LambdaProcessor
 from flathunter.default_processors import CrawlExposeDetails
 from flathunter.sender_mattermost import SenderMattermost
+from flathunter.sender_apprise import SenderApprise
 from flathunter.sender_telegram import SenderTelegram
 from flathunter.gmaps_duration_processor import GMapsDurationProcessor
 from flathunter.idmaintainer import SaveAllExposesProcessor
@@ -19,11 +20,13 @@ class ProcessorChainBuilder:
 
     def send_messages(self, receivers=None):
         """Add processor that sends messages for exposes"""
-        notifiers = self.config.get('notifiers', [])
+        notifiers = self.config.notifiers()
         if 'telegram' in notifiers:
             self.processors.append(SenderTelegram(self.config, receivers=receivers))
         if 'mattermost' in notifiers:
             self.processors.append(SenderMattermost(self.config))
+        if 'apprise' in notifiers:
+            self.processors.append(SenderApprise(self.config))
         return self
 
     def resolve_addresses(self):

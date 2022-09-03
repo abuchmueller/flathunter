@@ -12,7 +12,7 @@ class GoogleCloudIdMaintainer:
     """Storage back-end - implementation of IdMaintainer API"""
 
     def __init__(self):
-        project_id = Config().get('google_cloud_project_id')
+        project_id = Config().google_cloud_project_id()
         if project_id is None:
             raise Exception("Need to project a google_cloud_project_id in config.yaml")
         firebase_admin.initialize_app(credentials.ApplicationDefault(), {
